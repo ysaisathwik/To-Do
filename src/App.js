@@ -3,7 +3,6 @@ import {
   SignIn,
   SignUp,
   useUser,
-  useClerk,
   UserButton,
 } from '@clerk/clerk-react';
 
