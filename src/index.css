@@ -446,3 +446,181 @@ body {
   transition: .12s;
 }
 .btn-save:hover { opacity: .88; }
+
+/* ── AUTH SCREEN ── */
+.auth-screen {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.auth-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 32px 28px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.07);
+}
+.auth-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 32px;
+  letter-spacing: -1px;
+  text-align: center;
+  margin-bottom: 6px;
+}
+.auth-tagline {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 24px;
+}
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--day-empty);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+.auth-tab {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: .15s;
+  font-family: 'DM Sans', sans-serif;
+}
+.auth-tab.active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,.09);
+}
+.clerk-embed { min-height: 300px; }
+
+/* Clerk element overrides */
+.clerk-root { width: 100% !important; box-shadow: none !important; }
+.clerk-inner {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+.clerk-hide { display: none !important; }
+.clerk-footer { margin-top: 8px !important; }
+.clerk-btn-primary {
+  background: var(--accent) !important;
+  border-radius: 9px !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-weight: 500 !important;
+}
+.clerk-input {
+  border-radius: 9px !important;
+  border-color: var(--border) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  background: var(--bg) !important;
+}
+.clerk-social-btn {
+  border-radius: 9px !important;
+  border-color: var(--border) !important;
+  font-family: 'DM Sans', sans-serif !important;
+}
+.clerk-avatar { width: 32px !important; height: 32px !important; }
+
+/* ── NAV USER ── */
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-greeting {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+@media (max-width: 520px) { .nav-greeting { display: none; } }
+
+/* ── LOADING SCREEN ── */
+.loading-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: var(--bg);
+}
+.loading-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  letter-spacing: -1px;
+}
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── DAY PROGRESS BAR ── */
+.day-progress-bar {
+  height: 3px;
+  background: var(--day-empty);
+  overflow: hidden;
+}
+.day-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width .3s ease;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ── OVERALL PROGRESS CARD ── */
+.overall-progress-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.op-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.op-label { font-size: 13px; font-weight: 500; }
+.op-pct { font-size: 20px; font-weight: 600; color: var(--accent); }
+.op-bar {
+  height: 8px;
+  background: var(--day-empty);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.op-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #5b8de8);
+  border-radius: 99px;
+  transition: width .4s ease;
+}
+.op-sub { font-size: 11px; color: var(--muted); }
+
+/* ── STAT ICON ── */
+.stat-icon {
+  font-size: 18px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.stat-val.green { color: #2e7d32; }

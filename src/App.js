@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  SignIn,
+  SignUp,
+  useUser,
+  useClerk,
+  UserButton,
+} from '@clerk/clerk-react';
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const HM_COLORS = ['#ede9e3','#c7daf5','#8ab8ed','#4d8fd9','#1b5fb8'];
 
-function dateKey(d) {
-  return d.toISOString().slice(0, 10);
-}
-function todayKey() {
-  return dateKey(new Date());
-}
+function dateKey(d) { return d.toISOString().slice(0, 10); }
+function todayKey() { return dateKey(new Date()); }
+
 function getWeekDates(offset) {
   const now = new Date();
   const dow = now.getDay();
@@ -23,28 +27,88 @@ function getWeekDates(offset) {
     return d;
   });
 }
-function fmtDate(d) {
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-}
-function fmtDateFull(d) {
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+function fmtDate(d) { return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }
+function fmtDateFull(d) { return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
 
-// ─── storage ───────────────────────────────────────────────────────────────
-const STORAGE_KEY = 'doit_v3';
-function loadState() {
+// ─── per-user storage ──────────────────────────────────────────────────────
+function storageKey(userId) { return `doit_v3_${userId}`; }
+
+function loadState(userId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(userId));
     if (raw) return JSON.parse(raw);
   } catch (_) {}
   return { tasks: {}, weekOffset: 0, heatmapYear: new Date().getFullYear() };
 }
-function saveState(s) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+
+function saveState(userId, s) {
+  localStorage.setItem(storageKey(userId), JSON.stringify(s));
 }
 
-// ─── sub-components ─────────────────────────────────────────────────────────
+// ─── AUTH SCREEN ────────────────────────────────────────────────────────────
+function AuthScreen() {
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
 
+  return (
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="auth-logo">do<span className="logo-dot">.</span>it</div>
+        <div className="auth-tagline">Your tasks. Your week. Your streak.</div>
+
+        <div className="auth-tabs">
+          <button
+            className={`auth-tab${mode === 'signin' ? ' active' : ''}`}
+            onClick={() => setMode('signin')}
+          >Sign in</button>
+          <button
+            className={`auth-tab${mode === 'signup' ? ' active' : ''}`}
+            onClick={() => setMode('signup')}
+          >Create account</button>
+        </div>
+
+        <div className="clerk-embed">
+          {mode === 'signin' ? (
+            <SignIn
+              appearance={{
+                elements: {
+                  rootBox: 'clerk-root',
+                  card: 'clerk-inner',
+                  headerTitle: 'clerk-hide',
+                  headerSubtitle: 'clerk-hide',
+                  logoBox: 'clerk-hide',
+                  footer: 'clerk-footer',
+                  formButtonPrimary: 'clerk-btn-primary',
+                  formFieldInput: 'clerk-input',
+                  socialButtonsBlockButton: 'clerk-social-btn',
+                }
+              }}
+              routing="hash"
+            />
+          ) : (
+            <SignUp
+              appearance={{
+                elements: {
+                  rootBox: 'clerk-root',
+                  card: 'clerk-inner',
+                  headerTitle: 'clerk-hide',
+                  headerSubtitle: 'clerk-hide',
+                  logoBox: 'clerk-hide',
+                  footer: 'clerk-footer',
+                  formButtonPrimary: 'clerk-btn-primary',
+                  formFieldInput: 'clerk-input',
+                  socialButtonsBlockButton: 'clerk-social-btn',
+                }
+              }}
+              routing="hash"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TASK ITEM ───────────────────────────────────────────────────────────────
 function TaskItem({ task, onToggle, onDelete, onEdit }) {
   return (
     <div className="task-item">
@@ -66,6 +130,7 @@ function TaskItem({ task, onToggle, onDelete, onEdit }) {
   );
 }
 
+// ─── DAY COLUMN ──────────────────────────────────────────────────────────────
 function DayColumn({ date, tasks, onAdd, onToggle, onDelete, onEdit }) {
   const [adding, setAdding] = useState(false);
   const [inputVal, setInputVal] = useState('');
@@ -80,19 +145,28 @@ function DayColumn({ date, tasks, onAdd, onToggle, onDelete, onEdit }) {
   function handleKeyDown(e) {
     if (e.key === 'Enter') {
       const v = inputVal.trim();
-      if (v) { onAdd(dk, v); }
+      if (v) onAdd(dk, v);
       setInputVal('');
       setAdding(false);
     }
     if (e.key === 'Escape') { setAdding(false); setInputVal(''); }
   }
 
+  const dayIdx = date.getDay() === 0 ? 6 : date.getDay() - 1;
+  const done = tasks.filter(t => t.done).length;
+  const pct = tasks.length ? Math.round((done / tasks.length) * 100) : null;
+
   return (
     <div className={`day-col${isToday ? ' today-col' : ''}`}>
       <div className="day-head">
-        <span className="day-name">{DAYS[date.getDay() === 0 ? 6 : date.getDay() - 1]}</span>
+        <span className="day-name">{DAYS[dayIdx]}</span>
         <span className="day-date-badge">{fmtDate(date)}</span>
       </div>
+      {tasks.length > 0 && (
+        <div className="day-progress-bar">
+          <div className="day-progress-fill" style={{ width: pct + '%' }} />
+        </div>
+      )}
       <div className="task-list">
         {tasks.map(t => (
           <TaskItem
@@ -127,7 +201,7 @@ function DayColumn({ date, tasks, onAdd, onToggle, onDelete, onEdit }) {
 
 // ─── HEATMAP ────────────────────────────────────────────────────────────────
 function Heatmap({ tasks, year, onNavYear }) {
-  const [tooltip, setTooltip] = useState(null); // {x,y,html}
+  const [tooltip, setTooltip] = useState(null);
 
   const getDayPct = useCallback((dk) => {
     const t = tasks[dk] || [];
@@ -149,7 +223,6 @@ function Heatmap({ tasks, year, onNavYear }) {
   const daysInYear = isLeap ? 366 : 365;
   const totalWeeks = Math.ceil((startDow + daysInYear) / 7);
 
-  // Build weeks array
   const weeks = [];
   for (let w = 0; w < totalWeeks; w++) {
     const week = [];
@@ -168,7 +241,6 @@ function Heatmap({ tasks, year, onNavYear }) {
     weeks.push(week);
   }
 
-  // Month label positions
   const monthSlots = new Array(totalWeeks).fill('');
   for (let i = 0; i < daysInYear; i++) {
     const d = new Date(year, 0, i + 1);
@@ -176,8 +248,7 @@ function Heatmap({ tasks, year, onNavYear }) {
     if (d.getDate() === 1) monthSlots[wIdx] = MONTHS[d.getMonth()];
   }
 
-  // Week width
-  const cellW = 13, cellGap = 2, weekW = cellW + cellGap;
+  const weekW = 15;
 
   return (
     <div className="heatmap-card">
@@ -194,22 +265,17 @@ function Heatmap({ tasks, year, onNavYear }) {
       </div>
 
       <div className="hm-scroll-inner">
-        {/* Month labels */}
         <div className="months-row">
           {monthSlots.map((m, i) => (
             <div key={i} className="month-slot" style={{ width: weekW }}>{m}</div>
           ))}
         </div>
-
         <div className="hm-body">
-          {/* Day-of-week labels */}
           <div className="dow-col">
             {['M','','W','','F','','S'].map((l, i) => (
               <div key={i} className="dow-lbl">{l}</div>
             ))}
           </div>
-
-          {/* Cells */}
           <div className="hm-weeks">
             {weeks.map((week, wi) => (
               <div key={wi} className="hm-week">
@@ -221,7 +287,7 @@ function Heatmap({ tasks, year, onNavYear }) {
                     onMouseEnter={cell.empty ? undefined : e => {
                       setTooltip({
                         x: e.clientX + 14,
-                        y: e.clientY - 44,
+                        y: e.clientY - 52,
                         html: `<strong>${fmtDateFull(cell.date)}</strong><br/>${
                           cell.total === 0
                             ? 'No tasks'
@@ -230,7 +296,7 @@ function Heatmap({ tasks, year, onNavYear }) {
                       });
                     }}
                     onMouseMove={cell.empty ? undefined : e => {
-                      setTooltip(t => t ? { ...t, x: e.clientX + 14, y: e.clientY - 44 } : null);
+                      setTooltip(t => t ? { ...t, x: e.clientX + 14, y: e.clientY - 52 } : null);
                     }}
                     onMouseLeave={() => setTooltip(null)}
                   />
@@ -239,8 +305,6 @@ function Heatmap({ tasks, year, onNavYear }) {
             ))}
           </div>
         </div>
-
-        {/* Legend */}
         <div className="hm-legend">
           <span>Less</span>
           {HM_COLORS.map((c, i) => (
@@ -250,7 +314,6 @@ function Heatmap({ tasks, year, onNavYear }) {
         </div>
       </div>
 
-      {/* Floating tooltip */}
       {tooltip && (
         <div
           className="hm-tooltip"
@@ -267,10 +330,10 @@ function Dashboard({ tasks, heatmapYear, onNavYear }) {
   const allDays = Object.keys(tasks);
   const totalTasks = allDays.reduce((s, dk) => s + (tasks[dk]?.length || 0), 0);
   const doneTasks = allDays.reduce((s, dk) => s + (tasks[dk]?.filter(t => t.done).length || 0), 0);
+  const completionRate = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-  // streak calc
   let streak = 0;
-  const today = new Date(); today.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   for (let i = 0; i < 365; i++) {
     const d = new Date(today); d.setDate(today.getDate() - i);
     const dk = dateKey(d);
@@ -286,10 +349,10 @@ function Dashboard({ tasks, heatmapYear, onNavYear }) {
     : null;
 
   const stats = [
-    { val: totalTasks, lbl: 'Total tasks', cls: 'blue' },
-    { val: doneTasks, lbl: 'Completed', cls: 'red' },
-    { val: streak, lbl: 'Day streak 🔥', cls: '' },
-    { val: todayPct === null ? '—' : todayPct + '%', lbl: "Today's progress", cls: '' },
+    { val: totalTasks, lbl: 'Total tasks', cls: 'blue', icon: 'bi-list-task' },
+    { val: doneTasks, lbl: 'Completed', cls: 'red', icon: 'bi-check2-circle' },
+    { val: streak, lbl: 'Day streak 🔥', cls: '', icon: 'bi-lightning' },
+    { val: todayPct === null ? '—' : todayPct + '%', lbl: "Today's progress", cls: 'green', icon: 'bi-graph-up' },
   ];
 
   return (
@@ -297,11 +360,25 @@ function Dashboard({ tasks, heatmapYear, onNavYear }) {
       <div className="stats-strip">
         {stats.map((s, i) => (
           <div key={i} className="stat-card">
+            <div className="stat-icon"><i className={`bi ${s.icon}`} /></div>
             <div className={`stat-val ${s.cls}`}>{s.val}</div>
             <div className="stat-lbl">{s.lbl}</div>
           </div>
         ))}
       </div>
+
+      {/* Overall progress bar */}
+      <div className="overall-progress-card">
+        <div className="op-header">
+          <span className="op-label">Overall completion</span>
+          <span className="op-pct">{completionRate}%</span>
+        </div>
+        <div className="op-bar">
+          <div className="op-fill" style={{ width: completionRate + '%' }} />
+        </div>
+        <div className="op-sub">{doneTasks} of {totalTasks} tasks completed across all time</div>
+      </div>
+
       <Heatmap tasks={tasks} year={heatmapYear} onNavYear={onNavYear} />
     </>
   );
@@ -345,14 +422,24 @@ function EditModal({ visible, initialText, onSave, onClose }) {
   );
 }
 
-// ─── APP ────────────────────────────────────────────────────────────────────
-export default function App() {
-  const [tab, setTab] = useState('tasks');
-  const [state, setState] = useState(() => loadState());
-  const [editModal, setEditModal] = useState(null); // {dk, tid, text}
+// ─── MAIN APP (authenticated) ────────────────────────────────────────────────
+function MainApp() {
+  const { user } = useUser();
+  const userId = user.id;
 
-  // persist on every change
-  useEffect(() => { saveState(state); }, [state]);
+  const [tab, setTab] = useState('tasks');
+  const [state, setState] = useState(() => loadState(userId));
+  const [editModal, setEditModal] = useState(null);
+
+  // Reload state if user switches
+  useEffect(() => {
+    setState(loadState(userId));
+  }, [userId]);
+
+  // Persist on every change
+  useEffect(() => {
+    saveState(userId, state);
+  }, [userId, state]);
 
   const weekDates = getWeekDates(state.weekOffset);
 
@@ -361,7 +448,12 @@ export default function App() {
       ...s,
       tasks: {
         ...s.tasks,
-        [dk]: [...(s.tasks[dk] || []), { id: Date.now() + Math.random().toString(36).slice(2), text, done: false }]
+        [dk]: [...(s.tasks[dk] || []), {
+          id: Date.now() + Math.random().toString(36).slice(2),
+          text,
+          done: false,
+          createdAt: new Date().toISOString(),
+        }]
       }
     }));
   }
@@ -371,7 +463,9 @@ export default function App() {
       ...s,
       tasks: {
         ...s.tasks,
-        [dk]: (s.tasks[dk] || []).map(t => t.id === tid ? { ...t, done: !t.done } : t)
+        [dk]: (s.tasks[dk] || []).map(t =>
+          t.id === tid ? { ...t, done: !t.done } : t
+        )
       }
     }));
   }
@@ -379,12 +473,11 @@ export default function App() {
   function deleteTask(dk, tid) {
     setState(s => ({
       ...s,
-      tasks: { ...s.tasks, [dk]: (s.tasks[dk] || []).filter(t => t.id !== tid) }
+      tasks: {
+        ...s.tasks,
+        [dk]: (s.tasks[dk] || []).filter(t => t.id !== tid)
+      }
     }));
-  }
-
-  function openEdit(dk, tid, text) {
-    setEditModal({ dk, tid, text });
   }
 
   function saveEdit(newText) {
@@ -394,7 +487,9 @@ export default function App() {
       ...s,
       tasks: {
         ...s.tasks,
-        [dk]: (s.tasks[dk] || []).map(t => t.id === tid ? { ...t, text: newText } : t)
+        [dk]: (s.tasks[dk] || []).map(t =>
+          t.id === tid ? { ...t, text: newText } : t
+        )
       }
     }));
     setEditModal(null);
@@ -409,6 +504,7 @@ export default function App() {
   }
 
   const weekLabel = `${fmtDate(weekDates[0])} – ${fmtDate(weekDates[6])}`;
+  const firstName = user.firstName || user.username || 'there';
 
   return (
     <>
@@ -416,11 +512,21 @@ export default function App() {
         <div className="logo">do<span className="logo-dot">.</span>it</div>
         <div className="nav-tabs-wrap">
           <button className={`nav-pill${tab === 'tasks' ? ' active' : ''}`} onClick={() => setTab('tasks')}>
-            Tasks
+            <i className="bi bi-calendar3" /> Tasks
           </button>
           <button className={`nav-pill${tab === 'dashboard' ? ' active' : ''}`} onClick={() => setTab('dashboard')}>
-            Dashboard
+            <i className="bi bi-bar-chart" /> Dashboard
           </button>
+        </div>
+        <div className="nav-user">
+          <span className="nav-greeting">Hi, {firstName}</span>
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: 'clerk-avatar',
+              }
+            }}
+          />
         </div>
       </nav>
 
@@ -441,7 +547,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-
             <div className="days-grid">
               {weekDates.map((d, i) => (
                 <DayColumn
@@ -451,7 +556,7 @@ export default function App() {
                   onAdd={addTask}
                   onToggle={toggleTask}
                   onDelete={deleteTask}
-                  onEdit={openEdit}
+                  onEdit={(dk, tid, text) => setEditModal({ dk, tid, text })}
                 />
               ))}
             </div>
@@ -475,4 +580,24 @@ export default function App() {
       />
     </>
   );
+}
+
+// ─── ROOT APP with auth gate ─────────────────────────────────────────────────
+export default function App() {
+  const { isSignedIn, isLoaded } = useUser();
+
+  if (!isLoaded) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-logo">do<span className="logo-dot">.</span>it</div>
+        <div className="loading-spinner" />
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return <AuthScreen />;
+  }
+
+  return <MainApp />;
 }
